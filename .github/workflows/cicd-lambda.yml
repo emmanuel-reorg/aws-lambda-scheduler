@@ -32,9 +32,12 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
         id: ecr
       - uses: docker/metadata-action@v4
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          ECR_REPOSITORY: lambda-schedule
         id: metadata
         with:
-          images: ${{ steps.ecr.outputs.registry }}/${{ github.repository }}
+          images: $ECR_REGISTRY/$ECR_REPOSITORY
           flavor: latest=false
       - name: Push docker image   
         uses: docker/build-push-action@v3
