@@ -28,27 +28,53 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      - name: Build docker container image
+      - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-        id: ecr
-      - uses: docker/metadata-action@v4
-        env:
-          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
-          ECR_REPOSITORY: lambda-schedule
-        id: metadata
-        with:
-          images: $ECR_REGISTRY/$ECR_REPOSITORY
-          flavor: latest=false
-      - name: Push docker image   
-        uses: docker/build-push-action@v3
-        with:
-          push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
 
-      # Deploy a function
-      - uses: int128/deploy-lambda-action@v1
-        with:
-          function-name: scheduled_lambda
-          image-uri: ${{ steps.metadata.outputs.tags }}
-          alias-name: ${{ steps.metadata.outputs.version }}
+      # - uses: docker/metadata-action@v4
+      #   env:
+      #     ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+      #     ECR_REPOSITORY: lambda-schedule
+      #   id: metadata
+      #   with:
+      #     images: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}
+      #     flavor: latest=false
+          
+      # - name: Push docker image   
+      #   uses: docker/build-push-action@v3
+      #   with:
+      #     push: true
+      #     tags: latest
+      #     labels: ${{ steps.metadata.outputs.labels }}
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: fastapi-repo
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_TAG=$(echo ${{ github.sha }} | cut -c 1-7)
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      # # Deploy a function
+      # - uses: int128/deploy-lambda-action@v1
+      #   with:
+      #     function-name: scheduled_lambda
+      #     image-uri: ${{ steps.build-image.outputs.image }}
+      #     alias-name: ${{ github.run_number }}
+
+      - name: Retrieve Docker Image URI
+        id: get-image-uri
+        run: |
+          IMAGE_URI="${{ steps.build-image.env.ECR_REGISTRY }}/${{ steps.build-image.env.ECR_REPOSITORY }}:${{ steps.build-image.env.IMAGE_TAG }}"
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "::set-output name=image_uri::$IMAGE_URI"
+
+      - name: Update Lambda Function
+        run: |
+          aws lambda update-function-code \
+            --function-name scheduled_lambda \
+            --image-uri ${{ steps.get-image-uri.outputs.image_uri }}
