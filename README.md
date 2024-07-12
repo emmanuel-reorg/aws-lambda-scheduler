@@ -14,4 +14,4 @@ Architecture Diagram
    - Create a PR from **feature/branch** to **main**
    - The last step it's merge the PR and wait until the Worflow complete the execution
   
-4. With this endpoint user can validate the lambda function workflow and check those file are landing correctly in the destination bucket : https://us-east-1.console.aws.amazon.com/s3/buckets/scheduledbucketfastapi?region=us-east-1&bucketType=general&tab=objects 
+4. With this endpoint users can validate the lambda function workflow and check those file are landing correctly in the destination bucket : https://us-east-1.console.aws.amazon.com/s3/buckets/scheduledbucketfastapi?region=us-east-1&bucketType=general&tab=objects 
